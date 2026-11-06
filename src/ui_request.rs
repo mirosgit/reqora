@@ -74,7 +74,8 @@ fn header_row(ui: &mut egui::Ui, tab: &mut RequestTab, env: &EditorEnv, actions:
                 ui.label(RichText::new(ph::CARET_RIGHT).color(p.text_faint));
             }
             None => {
-                ui_kit::chip(ui, "Draft", p.text_weak).on_hover_text("Not saved in a collection yet — press Ctrl+S");
+                ui_kit::chip(ui, "Draft", p.text_weak)
+                    .on_hover_text(format!("Not saved in a collection yet — press {}", ui_kit::shortcut(&[ui_kit::CMD, "S"])));
             }
         }
         if tab.editing_name {
@@ -118,7 +119,10 @@ fn header_row(ui: &mut egui::Ui, tab: &mut RequestTab, env: &EditorEnv, actions:
                     ui.close_menu();
                 }
             });
-            if ui_kit::button(ui, ph::FLOPPY_DISK, "Save").on_hover_text("Save to collection (Ctrl+S)").clicked() {
+            if ui_kit::button(ui, ph::FLOPPY_DISK, "Save")
+                .on_hover_text(format!("Save to collection ({})", ui_kit::shortcut(&[ui_kit::CMD, "S"])))
+                .clicked()
+            {
                 actions.push(Action::Save(tab_id));
             }
             if ui_kit::button(ui, ph::TERMINAL_WINDOW, "cURL").on_hover_text("Copy as cURL command").clicked() {
@@ -220,7 +224,7 @@ fn url_bar(ui: &mut egui::Ui, tab: &mut RequestTab, env: &EditorEnv, actions: &m
                 actions.push(Action::Cancel(tab_id));
             }
         } else if ui_kit::primary_button(ui, Some(ph::PAPER_PLANE_RIGHT), "Send", egui::vec2(send_w, h))
-            .on_hover_text("Ctrl+Enter")
+            .on_hover_text(ui_kit::shortcut(&[ui_kit::CMD, "Enter"]))
             .clicked()
         {
             actions.push(Action::Send(tab_id));

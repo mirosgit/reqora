@@ -1069,7 +1069,9 @@ impl App {
         egui::TopBottomPanel::top("top_bar").frame(frame).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let show = self.store.ws.settings.show_sidebar;
-                if ui_kit::icon_toggle(ui, show, ph::SIDEBAR_SIMPLE, "Toggle sidebar (Ctrl+B)").clicked() {
+                if ui_kit::icon_toggle(ui, show, ph::SIDEBAR_SIMPLE, &format!("Toggle sidebar ({})", ui_kit::shortcut(&[ui_kit::CMD, "B"])))
+                    .clicked()
+                {
                     self.store.ws.settings.show_sidebar = !show;
                     self.ws_dirty = true;
                 }
@@ -1077,7 +1079,10 @@ impl App {
                 ui_kit::logo(ui, 26.0);
                 ui.label(RichText::new("Reqora").font(theme::semibold(15.0)).color(p.text_strong));
                 ui.add_space(14.0);
-                if ui_kit::button(ui, ph::PLUS, "New").on_hover_text("New request tab (Ctrl+T)").clicked() {
+                if ui_kit::button(ui, ph::PLUS, "New")
+                    .on_hover_text(format!("New request tab ({})", ui_kit::shortcut(&[ui_kit::CMD, "T"])))
+                    .clicked()
+                {
                     actions.push(Action::NewTab);
                 }
                 if ui_kit::button(ui, ph::DOWNLOAD_SIMPLE, "Import")
@@ -1245,7 +1250,7 @@ impl App {
                             }
                         });
                     });
-                if ui_kit::icon_button(ui, ph::PLUS, "New tab (Ctrl+T)").clicked() {
+                if ui_kit::icon_button(ui, ph::PLUS, &format!("New tab ({})", ui_kit::shortcut(&[ui_kit::CMD, "T"]))).clicked() {
                     actions.push(Action::NewTab);
                 }
             });
@@ -1526,15 +1531,15 @@ impl App {
                     ui.label(RichText::new("Keyboard shortcuts").font(theme::semibold(13.0)).color(p.text_strong));
                     ui.add_space(4.0);
                     for (keys, v) in [
-                        (&["Ctrl", "Enter"][..], "Send request / post comment"),
-                        (&["Ctrl", "S"][..], "Save"),
-                        (&["Ctrl", "Shift", "S"][..], "Save as"),
-                        (&["Ctrl", "T"][..], "New tab"),
-                        (&["Ctrl", "W"][..], "Close tab"),
-                        (&["Ctrl", "Tab"][..], "Next tab"),
-                        (&["Ctrl", "L"][..], "Focus URL"),
-                        (&["Ctrl", "F"][..], "Find in response"),
-                        (&["Ctrl", "B"][..], "Toggle sidebar"),
+                        (&[ui_kit::CMD, "Enter"][..], "Send request / post comment"),
+                        (&[ui_kit::CMD, "S"][..], "Save"),
+                        (&[ui_kit::CMD, ui_kit::SHIFT, "S"][..], "Save as"),
+                        (&[ui_kit::CMD, "T"][..], "New tab"),
+                        (&[ui_kit::CMD, "W"][..], "Close tab"),
+                        (&[ui_kit::CTRL, "Tab"][..], "Next tab"),
+                        (&[ui_kit::CMD, "L"][..], "Focus URL"),
+                        (&[ui_kit::CMD, "F"][..], "Find in response"),
+                        (&[ui_kit::CMD, "B"][..], "Toggle sidebar"),
                     ] {
                         ui.horizontal(|ui| {
                             ui.allocate_ui_with_layout(egui::vec2(150.0, 24.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -1749,10 +1754,10 @@ fn welcome(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
             let w = 330.0;
             ui.add_space(((ui.available_width() - w) / 2.0).max(0.0));
             ui.spacing_mut().item_spacing.x = 4.0;
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "T");
             ui.label(RichText::new(" new tab    ").color(p.text_weak));
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "Enter");
             ui.label(RichText::new(" send").color(p.text_weak));
         });
