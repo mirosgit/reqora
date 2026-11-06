@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Build Reqora (release) and install it for the current user into ~/.local
+# Build Reqora (release) and install it for the current user:
+#   Linux: binary, menu entry and icons into ~/.local
+#   macOS: Reqora.app into ~/Applications
+# On Windows use install.ps1 instead.
+#
 #   ./install.sh               build + install
 #   ./install.sh --no-build    install an already built target/release/reqora
-#   PREFIX=/some/prefix ./install.sh
+#   PREFIX=/some/prefix ./install.sh       (Linux)
+#   APPS_DIR=/Applications ./install.sh    (macOS)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 APP_ID=io.github.Reqora
-PREFIX="${PREFIX:-$HOME/.local}"
 BIN="target/release/reqora"
 
 if [[ "${1:-}" != "--no-build" ]]; then
@@ -18,12 +22,25 @@ if [[ "${1:-}" != "--no-build" ]]; then
         exit 1
     fi
     # Use half of the CPU cores at low priority so the desktop stays responsive.
-    JOBS="${JOBS:-$(( $(nproc) > 1 ? $(nproc) / 2 : 1 ))}"
+    CPUS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+    JOBS="${JOBS:-$(( CPUS > 1 ? CPUS / 2 : 1 ))}"
     echo "==> Building release binary ($JOBS jobs, low priority)…"
     nice -n 15 "$CARGO" build --release -j "$JOBS"
 fi
 [[ -x "$BIN" ]] || { echo "Binary $BIN not found — build first." >&2; exit 1; }
 
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    APPS_DIR="${APPS_DIR:-$HOME/Applications}"
+    ./packaging/build-macos.sh --app-only
+    echo "==> Installing Reqora.app into $APPS_DIR"
+    mkdir -p "$APPS_DIR"
+    rm -rf "$APPS_DIR/Reqora.app"
+    cp -R dist/Reqora.app "$APPS_DIR/"
+    echo "==> Done. Launch \"Reqora\" from Launchpad or Spotlight, or run: open \"$APPS_DIR/Reqora.app\""
+    exit 0
+fi
+
+PREFIX="${PREFIX:-$HOME/.local}"
 echo "==> Installing into $PREFIX"
 # Remove the install from before the rename (the app used to be "Free Postman").
 rm -f "$PREFIX/bin/free-postman" "$PREFIX/share/applications/io.github.FreePostman.desktop" \

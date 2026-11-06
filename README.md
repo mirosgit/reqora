@@ -1,9 +1,9 @@
 # Reqora
 
-A fast, lightweight open-source API client (a Postman alternative) for Linux, written in Rust:
-the GUI is built with [egui](https://github.com/emilk/egui) (GPU-rendered), HTTP runs on `reqwest` + `tokio`.
-It ships as a single binary and needs no system `-dev` packages. The Inter font and Phosphor icons are
-bundled, so the interface looks the same on every machine.
+A fast, lightweight open-source API client (a Postman alternative) for Linux, Windows and macOS,
+written in Rust: the GUI is built with [egui](https://github.com/emilk/egui) (GPU-rendered), HTTP runs on
+`reqwest` + `tokio`. It ships as a single binary and needs no system `-dev` packages. The Inter font and
+Phosphor icons are bundled, so the interface looks the same on every machine.
 
 ## Features
 
@@ -39,6 +39,9 @@ bundled, so the interface looks the same on every machine.
 
 ## Keyboard shortcuts
 
+On macOS, use ⌘ instead of Ctrl (except `Ctrl+Tab`, which stays Ctrl). The app shows the right keys
+for your platform.
+
 | Keys | Action |
 |---|---|
 | `Ctrl+Enter` | Send request (in a comment field: post the comment) |
@@ -51,15 +54,16 @@ bundled, so the interface looks the same on every machine.
 
 ## Installation
 
-Requires Rust (if you don't have it: `curl https://sh.rustup.rs -sSf | sh`).
+Building from source requires Rust (if you don't have it: <https://rustup.rs>).
+The build is limited to half of the CPU cores and runs at low priority so it doesn't freeze the system.
+You can set the number of jobs manually with the `JOBS` environment variable, e.g. `JOBS=2 ./install.sh`.
+
+### Linux
 
 ```bash
 ./install.sh          # builds a release and installs it into ~/.local (reqora binary, menu entry, icon)
 ./uninstall.sh        # uninstall (data is kept; --purge removes it too)
 ```
-
-The build is limited to half of the CPU cores and runs at low priority so it doesn't freeze the system.
-You can set the number of jobs manually: `JOBS=2 ./install.sh`.
 
 Build a `.deb`:
 
@@ -69,11 +73,65 @@ cargo build --release
 sudo apt install ./dist/reqora_*.deb
 ```
 
-To just run it without installing: `cargo run --release`.
+### macOS
+
+Requires the Xcode Command Line Tools (`xcode-select --install`).
+
+```bash
+./install.sh          # builds Reqora.app and installs it into ~/Applications (APPS_DIR=/Applications to change)
+./uninstall.sh        # uninstall (data is kept; --purge removes it too)
+```
+
+Build a `.dmg`:
+
+```bash
+cargo build --release
+./packaging/build-macos.sh        # → dist/Reqora.app and dist/reqora_<version>_macos_<arch>.dmg
+```
+
+The app is ad-hoc signed, not notarized. If macOS refuses to open a downloaded copy, allow it in
+System Settings → Privacy & Security → "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Reqora.app`.
+
+### Windows
+
+Requires the Rust toolchain for MSVC (rustup installs it together with the Visual Studio Build Tools).
+In PowerShell:
+
+```powershell
+.\install.ps1         # builds and installs into %LOCALAPPDATA%\Programs\Reqora, adds a Start menu shortcut
+.\uninstall.ps1       # uninstall (data is kept; -Purge removes it too)
+```
+
+If running scripts is disabled: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+
+Build a portable `.zip`:
+
+```powershell
+cargo build --release
+.\packaging\build-windows.ps1    # → dist\reqora_<version>_windows_x64.zip
+```
+
+The executable is not code-signed, so SmartScreen may warn on first launch: "More info" → "Run anyway".
+
+### Without installing
+
+`cargo run --release` works on every platform.
+
+### Prebuilt packages
+
+CI (`.github/workflows/ci.yml`) runs the tests on Linux, Windows and macOS for every push and pull request,
+and attaches the `.deb`, the Windows `.zip` and a universal (Apple Silicon + Intel) macOS `.dmg` to the run
+as artifacts.
 
 ## Where data is stored
 
-`~/.local/share/reqora/` (or `$XDG_DATA_HOME/reqora`):
+| OS | Directory |
+|---|---|
+| Linux | `~/.local/share/reqora/` (or `$XDG_DATA_HOME/reqora`) |
+| macOS | `~/Library/Application Support/Reqora/` |
+| Windows | `%APPDATA%\Reqora\` |
+
+Files:
 
 - `workspace.json`: collections (with comments and variables), environments, settings
 - `history.json`: the last 300 requests
@@ -81,7 +139,7 @@ To just run it without installing: `cargo run --release`.
 
 It's plain JSON, so you can keep it in git or back it up. If a file is corrupted, the app
 won't overwrite it; it renames it to `*.corrupt-<timestamp>.json` instead. The directory can be overridden
-with the `REQORA_DATA_DIR` variable. Data from the old version (`~/.local/share/free-postman`)
+with the `REQORA_DATA_DIR` variable. On Linux, data from the old version (`~/.local/share/free-postman`)
 is migrated automatically on first launch.
 
 ## Development

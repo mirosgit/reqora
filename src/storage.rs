@@ -1,5 +1,6 @@
 //! Persistence: workspace (collections, environments, settings), history and
-//! the open-tab session, stored as JSON in `$XDG_DATA_HOME/reqora`.
+//! the open-tab session, stored as JSON in the per-user data directory
+//! (see [`data_dir`]).
 
 use crate::model::*;
 use crate::vars::Vars;
@@ -30,9 +31,34 @@ pub struct Store {
 }
 
 pub fn data_dir() -> PathBuf {
-    if let Some(d) = std::env::var_os("REQORA_DATA_DIR") {
-        return PathBuf::from(d);
+    match std::env::var_os("REQORA_DATA_DIR") {
+        Some(d) => PathBuf::from(d),
+        None => platform_data_dir(),
     }
+}
+
+/// `%APPDATA%\Reqora`
+#[cfg(target_os = "windows")]
+fn platform_data_dir() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join("AppData").join("Roaming")))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Reqora")
+}
+
+/// `~/Library/Application Support/Reqora`
+#[cfg(target_os = "macos")]
+fn platform_data_dir() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join("Library").join("Application Support"))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Reqora")
+}
+
+/// `$XDG_DATA_HOME/reqora`, i.e. `~/.local/share/reqora` by default.
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn platform_data_dir() -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
