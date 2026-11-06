@@ -81,7 +81,7 @@ pub fn thread(
                 });
                 ui.horizontal(|ui| {
                     ui.add_space(34.0);
-                    ui_kit::keycap(ui, "Ctrl");
+                    ui_kit::keycap(ui, ui_kit::CMD);
                     ui_kit::keycap(ui, "Enter");
                     ui.label(RichText::new("to post").small().color(p.text_faint));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

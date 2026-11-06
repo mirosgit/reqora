@@ -60,10 +60,10 @@ fn idle(ui: &mut egui::Ui, p: &Pal) {
         ui.horizontal(|ui| {
             let total = 230.0;
             ui.add_space(((ui.available_width() - total) / 2.0).max(0.0));
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "Enter");
             ui.label(RichText::new("send   ·").color(p.text_weak));
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "S");
             ui.label(RichText::new("save").color(p.text_weak));
         });
@@ -130,7 +130,9 @@ fn body_view(ui: &mut egui::Ui, tab_id: u64, r: &mut RespUi, env: &EditorEnv, ac
                 let (text, _) = r.text_rows();
                 actions.push(Action::CopyText(text.to_string(), "Response body"));
             }
-            if ui_kit::icon_toggle(ui, r.search_open, ph::MAGNIFYING_GLASS, "Find (Ctrl+F)").clicked() {
+            if ui_kit::icon_toggle(ui, r.search_open, ph::MAGNIFYING_GLASS, &format!("Find ({})", ui_kit::shortcut(&[ui_kit::CMD, "F"])))
+                .clicked()
+            {
                 r.search_open = !r.search_open;
                 r.focus_search = r.search_open;
             }
@@ -178,7 +180,7 @@ fn search_bar(ui: &mut egui::Ui, r: &mut RespUi) {
             r.searched = Some(key);
         }
         let n = r.matches.len();
-        let prev = ui_kit::icon_button(ui, ph::CARET_UP, "Previous (Shift+Enter)").clicked();
+        let prev = ui_kit::icon_button(ui, ph::CARET_UP, &format!("Previous ({})", ui_kit::shortcut(&[ui_kit::SHIFT, "Enter"]))).clicked();
         let next = ui_kit::icon_button(ui, ph::CARET_DOWN, "Next (Enter)").clicked();
         if n > 0 && (next || prev || enter) {
             r.current = if prev || (enter && shift) { (r.current + n - 1) % n } else { (r.current + 1) % n };
