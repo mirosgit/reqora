@@ -1,0 +1,43 @@
+[package]
+name = "reqora"
+version = "0.2.0"
+edition = "2021"
+description = "Reqora — a fast, lightweight open-source API client for Linux"
+license = "MIT"
+
+[dependencies]
+eframe = "0.29"
+egui-phosphor = "0.7"
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls",
+    "rustls-tls-native-roots",
+    "http2",
+    "gzip",
+    "brotli",
+    "deflate",
+    "multipart",
+    "cookies",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "fs", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+base64 = "0.22"
+shlex = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rfd = "0.15"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico"] }
+fastrand = "2"
+
+[features]
+# Developer-only: scripted run that saves window screenshots to $REQORA_SHOT_DIR
+dev-screenshot = []
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+panic = "abort"
+
