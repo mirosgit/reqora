@@ -300,15 +300,15 @@ mod tests {
 
     #[test]
     fn rows_split_long_lines_and_crlf() {
-        let rows = split_rows("ab\r\n\nабвгд", 3);
+        let rows = split_rows("ab\r\n\nàéîõü", 3);
         assert_eq!(rows.len(), 4);
         assert_eq!(rows[0], Row { start: 0, end: 2, line: Some(1) });
         assert_eq!(rows[1].line, Some(2));
         assert_eq!(rows[2].line, Some(3));
         assert_eq!(rows[3].line, None);
-        let text = "ab\r\n\nабвгд";
-        assert_eq!(&text[rows[2].start..rows[2].end], "абв");
-        assert_eq!(&text[rows[3].start..rows[3].end], "гд");
+        let text = "ab\r\n\nàéîõü";
+        assert_eq!(&text[rows[2].start..rows[2].end], "àéî");
+        assert_eq!(&text[rows[3].start..rows[3].end], "õü");
     }
 
     #[test]

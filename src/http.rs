@@ -468,7 +468,7 @@ mod tests {
         req.auth.kind = AuthKind::Bearer;
         req.auth.token = "t0k".into();
         req.body.mode = BodyMode::Raw;
-        req.body.raw = "{\"hello\":\"мир\"}".into();
+        req.body.raw = "{\"hello\":\"wörld\"}".into();
         let p = prepare(&req, &Vars::new(), true).unwrap();
         let resp = rt.block_on(execute(&engine, &p)).unwrap();
         assert_eq!(resp.status, 200);
@@ -477,7 +477,7 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
         assert_eq!(v["line"], "POST /echo?x=1 HTTP/1.1");
         assert_eq!(v["auth"], "Bearer t0k");
-        assert_eq!(v["body"], "{\"hello\":\"мир\"}");
+        assert_eq!(v["body"], "{\"hello\":\"wörld\"}");
 
         let req = Request { url: format!("{base}/missing"), ..Default::default() };
         let resp = rt.block_on(execute(&engine, &prepare(&req, &Vars::new(), true).unwrap())).unwrap();

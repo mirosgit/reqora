@@ -217,7 +217,7 @@ mod tests {
         let f = FontId::monospace(13.0);
         for line in [
             r#"  "key": "va\"lue", "n": -1.5e3, "b": true, "x": null"#,
-            r#"  "юникод": "строка" ,"#,
+            r#"  "ünïcødé": "strïng" ,"#,
             "<a href=\"x\">text <!-- c --> </a>",
             "",
             "\"unterminated \\",

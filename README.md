@@ -1,113 +1,113 @@
 # Reqora
 
-Быстрый и лёгкий open-source API-клиент (аналог Postman) для Linux. Написан на Rust:
-GUI на [egui](https://github.com/emilk/egui) (рендер через GPU), HTTP через `reqwest` + `tokio`.
-Один бинарник, системные `-dev` пакеты не нужны. Шрифт Inter и иконки Phosphor встроены,
-поэтому интерфейс выглядит одинаково на любой машине.
+A fast, lightweight open-source API client (a Postman alternative) for Linux, written in Rust:
+the GUI is built with [egui](https://github.com/emilk/egui) (GPU-rendered), HTTP runs on `reqwest` + `tokio`.
+It ships as a single binary and needs no system `-dev` packages. The Inter font and Phosphor icons are
+bundled, so the interface looks the same on every machine.
 
-## Возможности
+## Features
 
-- **Запросы**: GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS, несколько вкладок
-- **Params**: синхронизируются со строкой URL в обе стороны; можно отключать отдельные параметры
-- **Headers**: таблица ключ–значение с чекбоксами
-- **Body**: `none`, `form-data` (текст и файлы), `x-www-form-urlencoded`, `raw` (JSON / Text / XML / HTML / JS, есть подсветка и кнопка Beautify), `binary` (файл)
-- **Authorization**: Bearer Token, Basic Auth, API Key (в заголовке или в query)
-- **Settings**: таймаут, следование редиректам, отключение проверки SSL (для самоподписанных сертификатов)
-- **Ответ**: статус, время, размер. JSON и XML форматируются и подсвечиваются,
-  картинки показываются превью. Есть Raw-режим, поиск (Ctrl+F), копирование, сохранение в файл,
-  заголовки ответа и отправленного запроса. Просмотрщик рисует только видимые строки,
-  поэтому ответы на несколько мегабайт не тормозят
-- **Комментарии** к запросам и коллекциям: кнопка 💬 в заголовке запроса открывает панель обсуждения
-  с автором, временем, правкой и удалением. Отправка по `Ctrl+Enter`. Имя автора задаётся в меню ⚙.
-  Комментарии сохраняются сразу и не помечают запрос как несохранённый
-- **Коллекции**: сохранение (Ctrl+S), переименование, дублирование, удаление, фильтр.
-  Двойной клик по коллекции (или «Overview & comments» в её меню) открывает обзор:
-  описание, переменные коллекции, список запросов и комментарии
-- **Переменные**:
-  - `{{base_url}}` работает в URL, параметрах, заголовках, теле и авторизации;
-  - `{base_url}` (одинарные скобки) работает в URL, если такая переменная определена.
-    Неизвестные `{id}` остаются как есть, так что шаблоны вида `/users/{id}` не ломаются;
-  - переменные берутся из коллекции запроса и из активного окружения; окружение важнее;
-  - в строке URL известные переменные подсвечиваются зелёным, неизвестные красным;
-  - встроенные: `{{$guid}}`, `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$randomInt}}`
-- **История** всех отправленных запросов, сгруппированная по дням
-- **cURL**: вставь `curl ...` в строку URL, и запрос импортируется. Обратно: кнопка «cURL»
-- **Импорт/экспорт Postman**: коллекции v2.0/v2.1 (вместе с переменными и описанием) и окружения
-- Cookies сохраняются между запросами в рамках сессии (сброс в строке состояния или меню ⚙)
-- Тёмная, светлая или системная тема; ответ можно расположить снизу или справа
-- Открытые вкладки, включая несохранённые правки, восстанавливаются после перезапуска
+- **Requests**: GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS, multiple tabs
+- **Params**: kept in sync with the URL bar both ways; individual params can be disabled
+- **Headers**: key–value table with checkboxes
+- **Body**: `none`, `form-data` (text and files), `x-www-form-urlencoded`, `raw` (JSON / Text / XML / HTML / JS, with highlighting and a Beautify button), `binary` (file)
+- **Authorization**: Bearer Token, Basic Auth, API Key (in a header or in the query)
+- **Settings**: timeout, follow redirects, disable SSL verification (for self-signed certificates)
+- **Response**: status, time, size. JSON and XML are formatted and highlighted,
+  images are shown as a preview. Raw mode, search (Ctrl+F), copy, save to file,
+  response headers and the headers of the sent request. The viewer only draws visible lines,
+  so multi-megabyte responses stay smooth
+- **Comments** on requests and collections: the 💬 button in the request header opens a discussion panel
+  with author, timestamp, editing and deletion. Post with `Ctrl+Enter`. Set the author name in the ⚙ menu.
+  Comments are saved immediately and don't mark the request as unsaved
+- **Collections**: save (Ctrl+S), rename, duplicate, delete, filter.
+  Double-clicking a collection (or "Overview & comments" in its menu) opens an overview:
+  description, collection variables, list of requests, and comments
+- **Variables**:
+  - `{{base_url}}` works in the URL, params, headers, body, and authorization;
+  - `{base_url}` (single braces) works in the URL if such a variable is defined.
+    Unknown `{id}` placeholders are left as is, so templates like `/users/{id}` don't break;
+  - variables come from the request's collection and from the active environment; the environment wins;
+  - in the URL bar, known variables are highlighted green and unknown ones red;
+  - built-ins: `{{$guid}}`, `{{$timestamp}}`, `{{$isoTimestamp}}`, `{{$randomInt}}`
+- **History** of every sent request, grouped by day
+- **cURL**: paste `curl ...` into the URL bar and the request is imported. The other way: the "cURL" button
+- **Postman import/export**: v2.0/v2.1 collections (including variables and description) and environments
+- Cookies persist between requests within a session (reset from the status bar or the ⚙ menu)
+- Dark, light, or system theme; the response can be placed below or to the right
+- Open tabs, including unsaved edits, are restored after a restart
 
-## Горячие клавиши
+## Keyboard shortcuts
 
-| Клавиши | Действие |
+| Keys | Action |
 |---|---|
-| `Ctrl+Enter` | Отправить запрос (в поле комментария — опубликовать комментарий) |
-| `Ctrl+S` / `Ctrl+Shift+S` | Сохранить / Сохранить как |
-| `Ctrl+T` / `Ctrl+W` | Новая / закрыть вкладку |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Следующая / предыдущая вкладка |
-| `Ctrl+L` | Фокус на URL |
-| `Ctrl+F` | Поиск в ответе |
-| `Ctrl+B` | Показать / скрыть сайдбар |
+| `Ctrl+Enter` | Send request (in a comment field: post the comment) |
+| `Ctrl+S` / `Ctrl+Shift+S` | Save / Save as |
+| `Ctrl+T` / `Ctrl+W` | New / close tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl+L` | Focus the URL bar |
+| `Ctrl+F` | Search in response |
+| `Ctrl+B` | Show / hide sidebar |
 
-## Установка
+## Installation
 
-Нужен Rust (если его нет: `curl https://sh.rustup.rs -sSf | sh`).
+Requires Rust (if you don't have it: `curl https://sh.rustup.rs -sSf | sh`).
 
 ```bash
-./install.sh          # соберёт release и установит в ~/.local (бинарник reqora, ярлык в меню, иконка)
-./uninstall.sh        # удалить (данные останутся; --purge удалит и их)
+./install.sh          # builds a release and installs it into ~/.local (reqora binary, menu entry, icon)
+./uninstall.sh        # uninstall (data is kept; --purge removes it too)
 ```
 
-Сборка ограничена половиной ядер и запускается с низким приоритетом, чтобы не подвешивать систему.
-Число потоков можно задать вручную: `JOBS=2 ./install.sh`.
+The build is limited to half of the CPU cores and runs at low priority so it doesn't freeze the system.
+You can set the number of jobs manually: `JOBS=2 ./install.sh`.
 
-Собрать `.deb`:
+Build a `.deb`:
 
 ```bash
 cargo build --release
-./packaging/build-deb.sh          # → dist/reqora_<версия>_amd64.deb
+./packaging/build-deb.sh          # → dist/reqora_<version>_amd64.deb
 sudo apt install ./dist/reqora_*.deb
 ```
 
-Просто запустить без установки: `cargo run --release`.
+To just run it without installing: `cargo run --release`.
 
-## Где хранятся данные
+## Where data is stored
 
-`~/.local/share/reqora/` (или `$XDG_DATA_HOME/reqora`):
+`~/.local/share/reqora/` (or `$XDG_DATA_HOME/reqora`):
 
-- `workspace.json`: коллекции (с комментариями и переменными), окружения, настройки
-- `history.json`: последние 300 запросов
-- `session.json`: открытые вкладки
+- `workspace.json`: collections (with comments and variables), environments, settings
+- `history.json`: the last 300 requests
+- `session.json`: open tabs
 
-Это обычный JSON, его можно класть в git или бэкапить. Если файл повреждён, приложение
-не затрёт его, а переименует в `*.corrupt-<время>.json`. Каталог можно переопределить
-переменной `REQORA_DATA_DIR`. Данные старой версии (`~/.local/share/free-postman`)
-переносятся автоматически при первом запуске.
+It's plain JSON, so you can keep it in git or back it up. If a file is corrupted, the app
+won't overwrite it; it renames it to `*.corrupt-<timestamp>.json` instead. The directory can be overridden
+with the `REQORA_DATA_DIR` variable. Data from the old version (`~/.local/share/free-postman`)
+is migrated automatically on first launch.
 
-## Разработка
+## Development
 
 ```bash
-cargo test            # юнит-тесты: cURL, Postman, переменные, HTTP против локального сервера и т.д.
+cargo test            # unit tests: cURL, Postman, variables, HTTP against a local server, etc.
 cargo run
 
-# Автоматический прогон UI со скриншотами окна (только для разработки).
-# Сценарий меняет данные, поэтому запускай его на отдельном каталоге:
+# Automated UI run that takes window screenshots (development only).
+# The scenario modifies data, so run it against a separate directory:
 REQORA_DATA_DIR=/tmp/reqora-data REQORA_SHOT_DIR=/tmp/reqora-shots cargo run --features dev-screenshot
 ```
 
-Структура `src/`:
+Layout of `src/`:
 
-| Файл | Что внутри |
+| File | Contents |
 |---|---|
-| `model.rs` | модель данных (запрос, коллекция, окружение, комментарий, история), синхронизация URL ↔ params |
-| `http.rs` | подготовка запроса (переменные, auth, body) и отправка через reqwest |
-| `response.rs` | определение типа ответа, форматирование JSON/XML, разбиение на строки, поиск |
-| `curl.rs`, `postman.rs` | импорт/экспорт cURL и Postman |
-| `vars.rs` | подстановка `{{переменных}}` и `{переменных}` |
-| `storage.rs` | сохранение на диск |
-| `app.rs` | состояние приложения, вкладки, действия, диалоги, обзор коллекции |
-| `theme.rs`, `ui_kit.rs` | дизайн-система: палитры, шрифты, кнопки, переключатели, чипы, аватары |
-| `ui_*.rs`, `widgets.rs`, `highlight.rs` | экраны и виджеты интерфейса |
+| `model.rs` | data model (request, collection, environment, comment, history), URL ↔ params sync |
+| `http.rs` | request preparation (variables, auth, body) and sending via reqwest |
+| `response.rs` | response type detection, JSON/XML formatting, line splitting, search |
+| `curl.rs`, `postman.rs` | cURL and Postman import/export |
+| `vars.rs` | substitution of `{{variables}}` and `{variables}` |
+| `storage.rs` | persistence to disk |
+| `app.rs` | application state, tabs, actions, dialogs, collection overview |
+| `theme.rs`, `ui_kit.rs` | design system: palettes, fonts, buttons, toggles, chips, avatars |
+| `ui_*.rs`, `widgets.rs`, `highlight.rs` | UI screens and widgets |
 
-Лицензия: MIT. Шрифт Inter: SIL OFL 1.1 (`assets/fonts/LICENSE-Inter.txt`).
-Иконки: [Phosphor](https://phosphoricons.com/) (MIT).
+License: MIT. Inter font: SIL OFL 1.1 (`assets/fonts/LICENSE-Inter.txt`).
+Icons: [Phosphor](https://phosphoricons.com/) (MIT).
