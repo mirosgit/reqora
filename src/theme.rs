@@ -303,7 +303,12 @@ fn setup_fonts(ctx: &egui::Context) {
         data.tweak.y_offset_factor = 0.08;
     }
 
-    if let Some(bytes) = symbol_font_candidates().iter().find_map(|p| std::fs::read(p).ok()) {
+    const SYMBOL_FALLBACKS: &[&str] = &[
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
+    ];
+    if let Some(bytes) = SYMBOL_FALLBACKS.iter().find_map(|p| std::fs::read(p).ok()) {
         fonts.font_data.insert("symbols".into(), FontData::from_owned(bytes));
         for family in [FontFamily::Proportional, FontFamily::Monospace] {
             if let Some(list) = fonts.families.get_mut(&family) {
@@ -322,30 +327,4 @@ fn setup_fonts(ctx: &egui::Context) {
         mono.push("phosphor".into());
     }
     ctx.set_fonts(fonts);
-}
-
-/// System fonts with wide symbol coverage (arrows, math, box drawing), tried in order.
-fn symbol_font_candidates() -> Vec<std::path::PathBuf> {
-    if cfg!(target_os = "windows") {
-        let fonts = std::path::PathBuf::from(std::env::var_os("WINDIR").unwrap_or_else(|| "C:\\Windows".into())).join("Fonts");
-        vec![fonts.join("seguisym.ttf"), fonts.join("arialuni.ttf")]
-    } else if cfg!(target_os = "macos") {
-        [
-            "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-            "/Library/Fonts/Arial Unicode.ttf",
-            "/System/Library/Fonts/Apple Symbols.ttf",
-        ]
-        .iter()
-        .map(Into::into)
-        .collect()
-    } else {
-        [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
-        ]
-        .iter()
-        .map(Into::into)
-        .collect()
-    }
 }
