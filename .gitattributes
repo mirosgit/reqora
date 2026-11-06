@@ -1,6 +1,0 @@
-# Keep LF everywhere (shell scripts and multi-line test strings break with CRLF on Windows checkouts).
-* text=auto eol=lf
-*.png binary
-*.ico binary
-*.icns binary
-*.otf binary

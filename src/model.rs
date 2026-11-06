@@ -460,7 +460,7 @@ pub struct Workspace {
 }
 
 pub fn default_author() -> String {
-    let user = ["USER", "LOGNAME", "USERNAME"].iter().find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty())).unwrap_or_default();
+    let user = std::env::var("USER").or_else(|_| std::env::var("LOGNAME")).unwrap_or_default();
     let mut c = user.chars();
     match c.next() {
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
