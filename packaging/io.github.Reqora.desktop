@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Reqora
+GenericName=API Client
+Comment=Fast, lightweight open-source API client
+Exec=@BIN@
+Icon=io.github.Reqora
+Terminal=false
+Categories=Development;WebDevelopment;
+Keywords=api;http;rest;postman;curl;request;client;
+StartupWMClass=io.github.Reqora
+StartupNotify=true
