@@ -60,47 +60,69 @@ for your platform.
 
 ## Installation
 
-Building from source requires Rust (if you don't have it: <https://rustup.rs>).
+Download a ready-made package: no Git, no Rust, nothing else to install.
+
+### Windows
+
+1. Open the [latest release](https://github.com/mirosgit/reqora/releases/latest) and download
+   **`Reqora-Setup-<version>-x64.exe`**.
+2. Run it. Windows may show **"Windows protected your PC"** because the installer isn't code-signed yet:
+   click **More info** → **Run anyway**.
+3. Click through the installer (no administrator rights needed). Reqora appears in the Start menu.
+
+To update, run the installer of the new version: it replaces the old one and keeps your data. To remove
+Reqora: **Settings → Apps → Installed apps → Reqora → Uninstall** (your collections in `%APPDATA%\Reqora`
+are kept). Prefer no installer? The same release has a portable **`reqora_<version>_windows_x64.zip`**:
+unzip it anywhere and run `reqora.exe`.
+
+### macOS
+
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask mirosgit/reqora/reqora
+```
+
+Reqora is in Applications. The **first time** you open it, macOS blocks it because the app isn't notarized
+by Apple yet: close the warning, go to **System Settings → Privacy & Security**, scroll down and click
+**Open Anyway** next to Reqora. You only do this once.
+
+Update with `brew upgrade --cask reqora`, remove with `brew uninstall --cask reqora`
+(`brew uninstall --cask --zap reqora` also deletes your data). Without Homebrew, download
+**`reqora_<version>_macos_universal.dmg`** from the [latest release](https://github.com/mirosgit/reqora/releases/latest)
+and drag Reqora into Applications. Both work on Apple Silicon and Intel Macs.
+
+### Linux (Debian, Ubuntu, Mint…)
+
+Download **`reqora_<version>_amd64.deb`** from the [latest release](https://github.com/mirosgit/reqora/releases/latest), then:
+
+```bash
+sudo apt install ./reqora_*_amd64.deb
+```
+
+### Building from source
+
+Requires Rust (if you don't have it: <https://rustup.rs>).
 The build is limited to half of the CPU cores and runs at low priority so it doesn't freeze the system.
 You can set the number of jobs manually with the `JOBS` environment variable, e.g. `JOBS=2 ./install.sh`.
 
-### Linux
+**Linux**
 
 ```bash
 ./install.sh          # builds a release and installs it into ~/.local (reqora binary, menu entry, icon)
 ./uninstall.sh        # uninstall (data is kept; --purge removes it too)
+cargo build --release && ./packaging/build-deb.sh     # or a .deb → dist/reqora_<version>_amd64.deb
 ```
 
-Build a `.deb`:
-
-```bash
-cargo build --release
-./packaging/build-deb.sh          # → dist/reqora_<version>_amd64.deb
-sudo apt install ./dist/reqora_*.deb
-```
-
-### macOS
-
-Requires the Xcode Command Line Tools (`xcode-select --install`).
+**macOS** (requires the Xcode Command Line Tools: `xcode-select --install`)
 
 ```bash
 ./install.sh          # builds Reqora.app and installs it into ~/Applications (APPS_DIR=/Applications to change)
 ./uninstall.sh        # uninstall (data is kept; --purge removes it too)
+cargo build --release && ./packaging/build-macos.sh   # or a .dmg → dist/reqora_<version>_macos_<arch>.dmg
 ```
 
-Build a `.dmg`:
-
-```bash
-cargo build --release
-./packaging/build-macos.sh        # → dist/Reqora.app and dist/reqora_<version>_macos_<arch>.dmg
-```
-
-The app is ad-hoc signed, not notarized. If macOS refuses to open a downloaded copy, allow it in
-System Settings → Privacy & Security → "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Reqora.app`.
-
-### Windows
-
-Requires the Rust toolchain for MSVC (rustup installs it together with the Visual Studio Build Tools).
+**Windows** (requires the Rust toolchain for MSVC; rustup installs it together with the Visual Studio Build Tools).
 In PowerShell:
 
 ```powershell
@@ -109,25 +131,15 @@ In PowerShell:
 ```
 
 If running scripts is disabled: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
-
-Build a portable `.zip`:
+To build the installer and the portable `.zip` yourself, install [Inno Setup](https://jrsoftware.org/isinfo.php)
+(`winget install JRSoftware.InnoSetup`), then:
 
 ```powershell
 cargo build --release
-.\packaging\build-windows.ps1    # → dist\reqora_<version>_windows_x64.zip
+.\packaging\build-windows.ps1    # → dist\Reqora-Setup-<version>-x64.exe and dist\reqora_<version>_windows_x64.zip
 ```
 
-The executable is not code-signed, so SmartScreen may warn on first launch: "More info" → "Run anyway".
-
-### Without installing
-
-`cargo run --release` works on every platform.
-
-### Prebuilt packages
-
-CI (`.github/workflows/ci.yml`) runs the tests on Linux, Windows and macOS for every push and pull request,
-and attaches the `.deb`, the Windows `.zip` and a universal (Apple Silicon + Intel) macOS `.dmg` to the run
-as artifacts.
+**Without installing:** `cargo run --release` works on every platform.
 
 ## Sync between computers
 
@@ -386,6 +398,40 @@ It's plain JSON, so you can keep it in git or back it up. If a file is corrupted
 won't overwrite it; it renames it to `*.corrupt-<timestamp>.json` instead. The directory can be overridden
 with the `REQORA_DATA_DIR` variable. On Linux, data from the old version (`~/.local/share/free-postman`)
 is migrated automatically on first launch.
+
+## Releasing
+
+CI (`.github/workflows/ci.yml`) runs the tests on Linux, Windows and macOS for every push and pull request,
+and attaches the packages to the run as artifacts: the `.deb`, the Windows installer and `.zip`, and a universal
+(Apple Silicon + Intel) macOS `.dmg`.
+
+To publish a version that people can download:
+
+1. Set the new version in `Cargo.toml` (e.g. `version = "0.3.0"`), run `cargo build` so `Cargo.lock` follows, commit.
+2. Tag the commit and push the tag:
+   ```bash
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+3. CI builds everything and creates the [GitHub release](https://github.com/mirosgit/reqora/releases) with all
+   packages attached. The tag must match the version in `Cargo.toml`, or the release step fails.
+
+**Homebrew tap (one-time setup).** `brew install --cask mirosgit/reqora/reqora` reads the cask from the
+repository `mirosgit/homebrew-reqora`. To have CI update it on every release:
+
+1. Create an empty public repository named **`homebrew-reqora`** on the same GitHub account.
+2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with access to
+   only that repository and the **Contents: Read and write** permission.
+3. In this repository: **Settings → Secrets and variables → Actions → New repository secret**, name
+   `HOMEBREW_TAP_TOKEN`, value: the token. (To use a tap with another name, also add a variable
+   `HOMEBREW_TAP` = `owner/repo`.)
+
+From then on each release writes `Casks/reqora.rb` there (from `packaging/homebrew/reqora.rb.in`). Without the
+secret, releases still work; only the tap isn't updated.
+
+**Code signing.** The packages aren't signed yet, which is why Windows shows SmartScreen and macOS needs
+"Open Anyway" on first launch. Removing those warnings needs a Windows code-signing certificate and an Apple
+Developer ID with notarization ($99/year).
 
 ## Development
 
