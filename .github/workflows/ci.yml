@@ -65,3 +65,49 @@ jobs:
             dist/*.deb
             dist/*.zip
             dist/*.dmg
+
+  server:
+    name: Sync server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: reqora
+          POSTGRES_PASSWORD: reqora
+          POSTGRES_DB: reqora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reqora -d reqora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Test (SQLite)
+        run: pytest
+
+      - name: Test (PostgreSQL)
+        env:
+          REQORA_TEST_DATABASE_URL: postgresql+asyncpg://reqora:reqora@localhost:5432/reqora_test
+        run: pytest
+
+      - name: Docker image
+        run: docker build -t reqora-server .
