@@ -4,8 +4,10 @@ use crate::http::{self, HttpEngine};
 use crate::model::*;
 use crate::response::{self, Processed, Row};
 use crate::storage::{Session, SessionTab, Store};
+use crate::sync::{self, SyncEngine};
 use crate::theme::Pal;
 use crate::ui_comments::{self, CommentState};
+use crate::ui_sync::{self, SyncForm, SyncStatus};
 use crate::widgets::{self, KvOptions};
 use crate::{curl, postman, theme, ui_kit, ui_request, ui_sidebar};
 use eframe::egui::{self, Color32, Key, KeyboardShortcut, Modifiers, RichText, Sense, Stroke};
@@ -15,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
+mod account;
 #[cfg(feature = "dev-screenshot")]
 mod devshot;
 
@@ -190,6 +193,12 @@ pub enum AppEvent {
     Response { tab_id: u64, seq: u64, result: Result<Processed, String>, request: Box<Request> },
     FilePicked { purpose: FilePurpose, path: Option<PathBuf> },
     Notify(String),
+    ServerChecked { url: String, result: Result<sync::ServerInfo, String> },
+    AuthDone { url: String, merge_local: bool, result: Box<Result<(sync::LoginOk, sync::ServerInfo), String>> },
+    SyncDone { owner: String, result: Box<Result<sync::RoundOutcome, sync::ApiError>> },
+    DevicesLoaded { owner: String, result: Result<Vec<sync::SessionInfo>, sync::ApiError> },
+    DeviceRevoked { owner: String, id: String, result: Result<(), sync::ApiError> },
+    PasswordChanged { owner: String, result: Result<(), sync::ApiError> },
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -259,6 +268,7 @@ pub enum Action {
     About,
     SyncComments(u64),
     OpenCollection(String),
+    OpenAccount,
 }
 
 enum Dialog {
@@ -266,6 +276,7 @@ enum Dialog {
     ConfirmClose { tab_id: u64 },
     ConfirmDelete { target: DeleteTarget, message: String },
     About,
+    Account,
 }
 
 enum DialogResult {
@@ -297,6 +308,9 @@ pub struct App {
     last_session: String,
     ctx: egui::Context,
     focus_url: bool,
+    sync: SyncEngine,
+    sync_status: SyncStatus,
+    sync_ui: SyncForm,
     #[cfg(feature = "dev-screenshot")]
     devshot: Option<devshot::DevShot>,
 }
@@ -306,6 +320,11 @@ impl App {
         theme::setup(&cc.egui_ctx);
         let store = Store::open();
         theme::apply_theme(&cc.egui_ctx, store.ws.settings.theme);
+        let mut sync = SyncEngine::load(store.dir());
+        if sync.recover_if_local_data_lost(store.ws_loaded, store.history_loaded) {
+            eprintln!("reqora: local data was missing or unreadable; it will be downloaded from the sync server again");
+            let _ = sync.save_state();
+        }
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .thread_name("reqora-net")
@@ -338,6 +357,9 @@ impl App {
             last_session: String::new(),
             ctx: cc.egui_ctx.clone(),
             focus_url: false,
+            sync,
+            sync_status: SyncStatus::default(),
+            sync_ui: SyncForm::default(),
             #[cfg(feature = "dev-screenshot")]
             devshot: devshot::DevShot::from_env(),
         };
@@ -389,6 +411,7 @@ impl App {
                 }
                 self.ws_dirty = false;
                 self.ws_saved_at = Instant::now();
+                self.schedule_sync(ui_sync::SYNC_DEBOUNCE);
             } else {
                 self.ctx.request_repaint_after(Duration::from_millis(800));
             }
@@ -523,6 +546,7 @@ impl App {
                     if let Err(e) = self.store.save_history() {
                         eprintln!("reqora: cannot save history: {e}");
                     }
+                    self.schedule_sync(ui_sync::SYNC_DEBOUNCE);
                     let ctx = self.ctx.clone();
                     if let Some(t) = find_req(&mut self.tabs, tab_id) {
                         if matches!(t.resp, RespState::Loading { seq: s, .. } if s == seq) {
@@ -542,6 +566,12 @@ impl App {
                 AppEvent::FilePicked { purpose, path: Some(path) } => self.on_file_picked(purpose, path),
                 AppEvent::FilePicked { path: None, .. } => {}
                 AppEvent::Notify(msg) => self.toast(msg),
+                AppEvent::ServerChecked { url, result } => self.on_server_checked(url, result),
+                AppEvent::AuthDone { url, merge_local, result } => self.on_auth_done(url, merge_local, *result),
+                AppEvent::SyncDone { owner, result } => self.on_sync_done(owner, *result),
+                AppEvent::DevicesLoaded { owner, result } => self.on_devices_loaded(owner, result),
+                AppEvent::DeviceRevoked { owner, id, result } => self.on_device_revoked(owner, id, result),
+                AppEvent::PasswordChanged { owner, result } => self.on_password_changed(owner, result),
             }
         }
     }
@@ -746,6 +776,7 @@ impl App {
             DeleteTarget::History => {
                 self.store.history.clear();
                 let _ = self.store.save_history();
+                self.schedule_sync(ui_sync::SYNC_DEBOUNCE);
                 return;
             }
         }
@@ -987,6 +1018,7 @@ impl App {
                     }
                 }
             }
+            Action::OpenAccount => self.open_account_dialog(),
             Action::OpenCollection(cid) => {
                 if let Some(i) = self.tabs.iter().position(|t| matches!(t, Tab::Collection(c) if c.coll_id == cid)) {
                     self.active = i;
@@ -1069,7 +1101,9 @@ impl App {
         egui::TopBottomPanel::top("top_bar").frame(frame).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let show = self.store.ws.settings.show_sidebar;
-                if ui_kit::icon_toggle(ui, show, ph::SIDEBAR_SIMPLE, "Toggle sidebar (Ctrl+B)").clicked() {
+                if ui_kit::icon_toggle(ui, show, ph::SIDEBAR_SIMPLE, &format!("Toggle sidebar ({})", ui_kit::shortcut(&[ui_kit::CMD, "B"])))
+                    .clicked()
+                {
                     self.store.ws.settings.show_sidebar = !show;
                     self.ws_dirty = true;
                 }
@@ -1077,7 +1111,10 @@ impl App {
                 ui_kit::logo(ui, 26.0);
                 ui.label(RichText::new("Reqora").font(theme::semibold(15.0)).color(p.text_strong));
                 ui.add_space(14.0);
-                if ui_kit::button(ui, ph::PLUS, "New").on_hover_text("New request tab (Ctrl+T)").clicked() {
+                if ui_kit::button(ui, ph::PLUS, "New")
+                    .on_hover_text(format!("New request tab ({})", ui_kit::shortcut(&[ui_kit::CMD, "T"])))
+                    .clicked()
+                {
                     actions.push(Action::NewTab);
                 }
                 if ui_kit::button(ui, ph::DOWNLOAD_SIMPLE, "Import")
@@ -1165,6 +1202,14 @@ impl App {
         }
         ui.add_space(6.0);
         ui.separator();
+        let account = match self.sync.account.as_ref().filter(|a| a.signed_in()) {
+            Some(a) => format!("{}  Sync & account ({})", ph::CLOUD_CHECK, widgets::truncate_chars(&a.email, 22)),
+            None => format!("{}  Sync & account…", ph::CLOUD),
+        };
+        if ui.button(account).clicked() {
+            actions.push(Action::OpenAccount);
+            ui.close_menu();
+        }
         if ui.button(format!("{}  Clear cookies", ph::COOKIE)).clicked() {
             actions.push(Action::ClearCookies);
             ui.close_menu();
@@ -1195,6 +1240,7 @@ impl App {
                     }
                 }
                 ui.label(small(format!("{}  {} in history", ph::CLOCK_COUNTER_CLOCKWISE, self.store.history.len()), p.text_weak));
+                self.sync_indicator(ui, actions);
                 let r = ui.add(egui::Label::new(small(format!("{}  Clear cookies", ph::COOKIE), p.text_weak)).sense(Sense::click()));
                 if r.clicked() {
                     actions.push(Action::ClearCookies);
@@ -1245,7 +1291,7 @@ impl App {
                             }
                         });
                     });
-                if ui_kit::icon_button(ui, ph::PLUS, "New tab (Ctrl+T)").clicked() {
+                if ui_kit::icon_button(ui, ph::PLUS, &format!("New tab ({})", ui_kit::shortcut(&[ui_kit::CMD, "T"]))).clicked() {
                     actions.push(Action::NewTab);
                 }
             });
@@ -1425,6 +1471,7 @@ impl App {
         let Some(dialog) = &mut self.dialog else { return };
         let mut close = false;
         let mut result: Option<DialogResult> = None;
+        let mut account_action = None;
         let p = Pal::new(ctx.style().visuals.dark_mode);
         let enter = ctx.input(|i| i.key_pressed(Key::Enter));
         match dialog {
@@ -1510,6 +1557,18 @@ impl App {
                     });
                 });
             }
+            Dialog::Account => {
+                let ws = &self.store.ws;
+                let view = ui_sync::DialogView {
+                    account: self.sync.account.as_ref(),
+                    status: &self.sync_status,
+                    local: (ws.collections.len(), ws.environments.len(), self.store.history.len()),
+                };
+                let form = &mut self.sync_ui;
+                modal(ctx, ph::CLOUD, "Sync & account", |ui| {
+                    account_action = ui_sync::account_dialog(ui, form, &view, enter);
+                });
+            }
             Dialog::About => {
                 let dir = self.store.dir().display().to_string();
                 modal(ctx, ph::INFO, "About", |ui| {
@@ -1526,15 +1585,15 @@ impl App {
                     ui.label(RichText::new("Keyboard shortcuts").font(theme::semibold(13.0)).color(p.text_strong));
                     ui.add_space(4.0);
                     for (keys, v) in [
-                        (&["Ctrl", "Enter"][..], "Send request / post comment"),
-                        (&["Ctrl", "S"][..], "Save"),
-                        (&["Ctrl", "Shift", "S"][..], "Save as"),
-                        (&["Ctrl", "T"][..], "New tab"),
-                        (&["Ctrl", "W"][..], "Close tab"),
-                        (&["Ctrl", "Tab"][..], "Next tab"),
-                        (&["Ctrl", "L"][..], "Focus URL"),
-                        (&["Ctrl", "F"][..], "Find in response"),
-                        (&["Ctrl", "B"][..], "Toggle sidebar"),
+                        (&[ui_kit::CMD, "Enter"][..], "Send request / post comment"),
+                        (&[ui_kit::CMD, "S"][..], "Save"),
+                        (&[ui_kit::CMD, ui_kit::SHIFT, "S"][..], "Save as"),
+                        (&[ui_kit::CMD, "T"][..], "New tab"),
+                        (&[ui_kit::CMD, "W"][..], "Close tab"),
+                        (&[ui_kit::CTRL, "Tab"][..], "Next tab"),
+                        (&[ui_kit::CMD, "L"][..], "Focus URL"),
+                        (&[ui_kit::CMD, "F"][..], "Find in response"),
+                        (&[ui_kit::CMD, "B"][..], "Toggle sidebar"),
                     ] {
                         ui.horizontal(|ui| {
                             ui.allocate_ui_with_layout(egui::vec2(150.0, 24.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -1559,6 +1618,9 @@ impl App {
         }
         if ctx.input(|i| i.key_pressed(Key::Escape)) {
             close = true;
+        }
+        if let Some(a) = account_action {
+            self.on_account_action(a);
         }
         if let Some(r) = result {
             self.dialog = None;
@@ -1658,6 +1720,7 @@ impl eframe::App for App {
             self.handle(a);
         }
         self.persist(false);
+        self.sync_tick();
         #[cfg(feature = "dev-screenshot")]
         self.devshot_tick(ctx);
     }
@@ -1749,10 +1812,10 @@ fn welcome(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
             let w = 330.0;
             ui.add_space(((ui.available_width() - w) / 2.0).max(0.0));
             ui.spacing_mut().item_spacing.x = 4.0;
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "T");
             ui.label(RichText::new(" new tab    ").color(p.text_weak));
-            ui_kit::keycap(ui, "Ctrl");
+            ui_kit::keycap(ui, ui_kit::CMD);
             ui_kit::keycap(ui, "Enter");
             ui.label(RichText::new(" send").color(p.text_weak));
         });

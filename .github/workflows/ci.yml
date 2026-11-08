@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-22.04
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          # macOS: build for both architectures to ship a universal app.
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Package (.deb)
+        if: runner.os == 'Linux'
+        run: |
+          cargo build --release --locked
+          ./packaging/build-deb.sh
+
+      - name: Package (.zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build --release --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./packaging/build-windows.ps1
+
+      - name: Package (.dmg, universal)
+        if: runner.os == 'macOS'
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p target/universal
+          lipo -create -output target/universal/reqora \
+            target/aarch64-apple-darwin/release/reqora \
+            target/x86_64-apple-darwin/release/reqora
+          BIN=target/universal/reqora ./packaging/build-macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reqora-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.deb
+            dist/*.zip
+            dist/*.dmg
+
+  server:
+    name: Sync server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: reqora
+          POSTGRES_PASSWORD: reqora
+          POSTGRES_DB: reqora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reqora -d reqora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Test (SQLite)
+        run: pytest
+
+      - name: Test (PostgreSQL)
+        env:
+          REQORA_TEST_DATABASE_URL: postgresql+asyncpg://reqora:reqora@localhost:5432/reqora_test
+        run: pytest
+
+      - name: Docker image
+        run: docker build -t reqora-server .

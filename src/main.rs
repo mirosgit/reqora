@@ -1,4 +1,7 @@
-//! Reqora — a fast, lightweight open-source API client for Linux.
+//! Reqora — a fast, lightweight open-source API client for Linux, Windows and macOS.
+
+// Release builds on Windows are GUI apps: don't open a console window next to them.
+#![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
 mod curl;
@@ -8,12 +11,14 @@ mod model;
 mod postman;
 mod response;
 mod storage;
+mod sync;
 mod theme;
 mod ui_comments;
 mod ui_kit;
 mod ui_request;
 mod ui_response;
 mod ui_sidebar;
+mod ui_sync;
 mod vars;
 mod widgets;
 

@@ -235,6 +235,22 @@ pub fn avatar(ui: &mut Ui, name: &str, size: f32) -> Response {
     resp.on_hover_text(name)
 }
 
+const MACOS: bool = cfg!(target_os = "macos");
+/// Label of the primary shortcut modifier (egui's `Modifiers::COMMAND`): ⌘ on macOS, Ctrl elsewhere.
+pub const CMD: &str = if MACOS { "⌘" } else { "Ctrl" };
+/// Label of the physical Control key (`Modifiers::CTRL`).
+pub const CTRL: &str = if MACOS { "⌃" } else { "Ctrl" };
+pub const SHIFT: &str = if MACOS { "⇧" } else { "Shift" };
+
+/// Shortcut text for tooltips, in the platform's style: `⌘S` on macOS, `Ctrl+S` elsewhere.
+pub fn shortcut(keys: &[&str]) -> String {
+    if MACOS {
+        keys.concat()
+    } else {
+        keys.join("+")
+    }
+}
+
 /// Keyboard key cap, e.g. `Ctrl`.
 pub fn keycap(ui: &mut Ui, key: &str) {
     let p = Pal::of(ui);

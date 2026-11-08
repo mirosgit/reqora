@@ -2,7 +2,7 @@
 name = "reqora"
 version = "0.2.0"
 edition = "2021"
-description = "Reqora — a fast, lightweight open-source API client for Linux"
+description = "Reqora — a fast, lightweight open-source API client for Linux, Windows and macOS"
 license = "MIT"
 
 [dependencies]
@@ -29,6 +29,10 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 rfd = "0.15"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico"] }
 fastrand = "2"
+
+[target.'cfg(windows)'.build-dependencies]
+# Embeds the icon and version info into reqora.exe (see build.rs)
+winresource = "0.1"
 
 [features]
 # Developer-only: scripted run that saves window screenshots to $REQORA_SHOT_DIR

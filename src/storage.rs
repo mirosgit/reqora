@@ -1,5 +1,6 @@
 //! Persistence: workspace (collections, environments, settings), history and
-//! the open-tab session, stored as JSON in `$XDG_DATA_HOME/reqora`.
+//! the open-tab session, stored as JSON in the per-user data directory
+//! (see [`data_dir`]).
 
 use crate::model::*;
 use crate::vars::Vars;
@@ -27,12 +28,40 @@ pub struct Store {
     dir: PathBuf,
     pub ws: Workspace,
     pub history: Vec<HistoryEntry>,
+    /// Whether `workspace.json` / `history.json` were read (false if missing or corrupt).
+    pub ws_loaded: bool,
+    pub history_loaded: bool,
 }
 
 pub fn data_dir() -> PathBuf {
-    if let Some(d) = std::env::var_os("REQORA_DATA_DIR") {
-        return PathBuf::from(d);
+    match std::env::var_os("REQORA_DATA_DIR") {
+        Some(d) => PathBuf::from(d),
+        None => platform_data_dir(),
     }
+}
+
+/// `%APPDATA%\Reqora`
+#[cfg(target_os = "windows")]
+fn platform_data_dir() -> PathBuf {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join("AppData").join("Roaming")))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Reqora")
+}
+
+/// `~/Library/Application Support/Reqora`
+#[cfg(target_os = "macos")]
+fn platform_data_dir() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join("Library").join("Application Support"))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Reqora")
+}
+
+/// `$XDG_DATA_HOME/reqora`, i.e. `~/.local/share/reqora` by default.
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn platform_data_dir() -> PathBuf {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
@@ -85,9 +114,15 @@ impl Store {
 
     pub fn open_at(dir: PathBuf) -> Self {
         let _ = std::fs::create_dir_all(&dir);
-        let ws = read_json(&dir.join("workspace.json")).unwrap_or_default();
-        let history = read_json(&dir.join("history.json")).unwrap_or_default();
-        Self { dir, ws, history }
+        let ws: Option<Workspace> = read_json(&dir.join("workspace.json"));
+        let history: Option<Vec<HistoryEntry>> = read_json(&dir.join("history.json"));
+        Self {
+            dir,
+            ws_loaded: ws.is_some(),
+            history_loaded: history.is_some(),
+            ws: ws.unwrap_or_default(),
+            history: history.unwrap_or_default(),
+        }
     }
 
     pub fn dir(&self) -> &Path {
@@ -202,6 +237,7 @@ mod tests {
         s.save_history().unwrap();
 
         let s2 = Store::open_at(dir.clone());
+        assert!(s2.ws_loaded && s2.history_loaded);
         assert!(s2.find_request(&cid, &rid).is_some());
         assert_eq!(s2.history.len(), HISTORY_LIMIT);
         assert_eq!(s2.history[0].id, (HISTORY_LIMIT + 4).to_string());
@@ -218,6 +254,7 @@ mod tests {
         std::fs::write(dir.join("workspace.json"), "{ broken").unwrap();
         let s3 = Store::open_at(dir.clone());
         assert!(s3.ws.collections.is_empty());
+        assert!(!s3.ws_loaded && s3.history_loaded);
         let backups =
             std::fs::read_dir(&dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().contains("corrupt")).count();
         assert_eq!(backups, 1);
