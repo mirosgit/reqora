@@ -28,6 +28,9 @@ pub struct Store {
     dir: PathBuf,
     pub ws: Workspace,
     pub history: Vec<HistoryEntry>,
+    /// Whether `workspace.json` / `history.json` were read (false if missing or corrupt).
+    pub ws_loaded: bool,
+    pub history_loaded: bool,
 }
 
 pub fn data_dir() -> PathBuf {
@@ -111,9 +114,15 @@ impl Store {
 
     pub fn open_at(dir: PathBuf) -> Self {
         let _ = std::fs::create_dir_all(&dir);
-        let ws = read_json(&dir.join("workspace.json")).unwrap_or_default();
-        let history = read_json(&dir.join("history.json")).unwrap_or_default();
-        Self { dir, ws, history }
+        let ws: Option<Workspace> = read_json(&dir.join("workspace.json"));
+        let history: Option<Vec<HistoryEntry>> = read_json(&dir.join("history.json"));
+        Self {
+            dir,
+            ws_loaded: ws.is_some(),
+            history_loaded: history.is_some(),
+            ws: ws.unwrap_or_default(),
+            history: history.unwrap_or_default(),
+        }
     }
 
     pub fn dir(&self) -> &Path {
@@ -228,6 +237,7 @@ mod tests {
         s.save_history().unwrap();
 
         let s2 = Store::open_at(dir.clone());
+        assert!(s2.ws_loaded && s2.history_loaded);
         assert!(s2.find_request(&cid, &rid).is_some());
         assert_eq!(s2.history.len(), HISTORY_LIMIT);
         assert_eq!(s2.history[0].id, (HISTORY_LIMIT + 4).to_string());
@@ -244,6 +254,7 @@ mod tests {
         std::fs::write(dir.join("workspace.json"), "{ broken").unwrap();
         let s3 = Store::open_at(dir.clone());
         assert!(s3.ws.collections.is_empty());
+        assert!(!s3.ws_loaded && s3.history_loaded);
         let backups =
             std::fs::read_dir(&dir).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().contains("corrupt")).count();
         assert_eq!(backups, 1);
